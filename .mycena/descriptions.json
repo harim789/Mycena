@@ -1,0 +1,54 @@
+{
+  "README.md": { "summary": "Mycena를 처음 보는 사람을 위한 설명서", "detail": "무엇을 하는 도구인지, 어떻게 설치하고 쓰는지, 한계는 무엇인지 적혀 있어요.", "concepts": ["사용 안내"] },
+  "CLAUDE.md": { "summary": "이 저장소에서 일하는 Claude Code가 지킬 규칙", "detail": "커밋에 Claude를 넣지 않기, 외부 패키지 쓰지 않기, 수정 후 테스트하기를 적어 두었어요." },
+  "package.json": { "summary": "프로그램 이름표와 실행 명령 목록", "detail": "mycena 명령이 bin/mycena.js를 가리키도록 등록하고, npm test가 무엇을 실행할지 정해요." },
+  "bin/mycena.js": {
+    "summary": "터미널 명령의 입구", "detail": "init, serve, import 같은 명령어를 받아 알맞은 담당 파일로 넘겨주는 안내 데스크예요. 훅이 실패해도 Claude의 작업을 막지 않도록 여기서 오류를 삼켜요.",
+    "concepts": ["명령줄 도구"],
+    "uses": [
+      { "path": "src/hooks.js", "why": "Claude Code 훅이 호출되면 처리를 맡기려고" },
+      { "path": "src/install.js", "why": "init, uninstall 명령을 처리하려고" },
+      { "path": "src/output.js", "why": "serve, build 명령으로 뷰어를 보여주려고" },
+      { "path": "src/transcript.js", "why": "import 명령으로 과거 작업을 가져오려고" }
+    ]
+  },
+  "src/hooks.js": {
+    "summary": "Claude Code가 일할 때 끼어드는 감시 카메라와 작업 일지 담당", "detail": "파일이 바뀌면 기록을 남기고, Claude가 답변을 끝내려 할 때 설명 없는 수정이 있으면 한 번 붙잡아 쉬운 설명 노트를 쓰게 해요.",
+    "concepts": ["Claude Code 훅", "변경 기록"]
+  },
+  "src/events.js": {
+    "summary": "도구 호출 하나를 변경 기록 한 건으로 바꾸는 변환기", "detail": "훅과 과거 기록 가져오기가 같은 모양의 기록을 만들도록 공통으로 써요. 프로젝트 밖 파일은 빼고, .env 같은 민감한 파일은 내용을 남기지 않아요.",
+    "concepts": ["변경 기록", "민감 정보 보호"]
+  },
+  "src/bashtrack.js": {
+    "summary": "셸 명령으로 바뀐 파일을 찾아내는 비교 담당", "detail": "명령 전후의 git 작업 트리 사진을 찍어 틀린 그림 찾기를 해요. sed나 mv처럼 Edit 도구를 거치지 않은 수정도 이렇게 잡아요.",
+    "concepts": ["Claude Code 훅", "변경 기록"]
+  },
+  "src/transcript.js": {
+    "summary": "Claude Code 대화 기록을 읽는 담당", "detail": "사용자가 뭐라고 요청했고 Claude가 뭐라고 했는지 찾아 의도의 단서로 삼아요. 훅 설치 전의 수정도 여기서 가져와요.",
+    "concepts": ["변경 기록"]
+  },
+  "src/store.js": { "summary": ".mycena 폴더의 창고 관리인", "detail": "자동 기록, 작업 노트, 파일 설명을 읽고 쓰는 일을 한곳에 모았어요. 형식이 깨진 노트가 있어도 전체가 멈추지 않게 받아줘요.", "concepts": ["변경 기록"] },
+  "src/util.js": { "summary": "여러 파일이 함께 쓰는 공구함", "detail": "경로 변환, 긴 글 자르기, 추적 대상 판단, 민감한 파일 판별 같은 작은 도구가 들어 있어요.", "concepts": ["민감 정보 보호"] },
+  "src/scan.js": { "summary": "그래프에 올릴 파일과 git 기록을 모으는 담당", "detail": ".gitignore를 존중해 파일 목록을 만들고, 파일별 최근 커밋을 찾아요. Claude가 만들지 않은 코드도 이 기록으로 이해할 수 있어요.", "concepts": ["코드 분석"] },
+  "src/parse.js": { "summary": "소스 코드에서 연결 정보를 읽어내는 담당", "detail": "import, 선언, API 주소를 찾고 파일의 역할(컨트롤러, 서비스 등)을 분류해요. 맨 앞 주석을 요약으로 뽑기도 해요.", "concepts": ["코드 분석"] },
+  "src/graph.js": {
+    "summary": "모든 재료를 그래프 데이터 하나로 합치는 조립 담당", "detail": "파일은 점, import는 선, 자동 기록과 노트는 작업으로 묶어요. 뷰어가 그리는 데이터가 여기서 나와요.",
+    "concepts": ["코드 분석", "관계 그래프"]
+  },
+  "src/output.js": {
+    "summary": "그래프를 화면으로 내보내는 담당", "detail": "뷰어 조각들을 HTML 한 장으로 합쳐 파일로 저장하거나, 실시간 서버로 보여줘요. 이 컴퓨터에서 온 요청에만 답해요.",
+    "concepts": ["관계 그래프"],
+    "uses": [{ "path": "viewer/index.html", "why": "뷰어 틀에 스타일과 코드, 데이터를 채워 넣으려고" }]
+  },
+  "src/install.js": { "summary": "Claude Code 설정에 훅을 넣고 빼는 설치 담당", "detail": "사용자의 다른 설정은 그대로 두고 Mycena 부분만 추가하거나 제거해요. 설정 파일이 깨져 있으면 덮어쓰지 않고 멈춰요.", "concepts": ["Claude Code 훅"], "uses": [{ "path": "commands/mycena-describe.md", "why": "슬래시 명령을 프로젝트에 복사하려고" }] },
+  "commands/mycena-describe.md": { "summary": "기존 코드 전체에 설명을 붙여 달라는 Claude용 지시서", "detail": "/mycena-describe를 실행하면 Claude가 이 지시대로 descriptions.json을 채워요.", "concepts": ["사용 안내"] },
+  "viewer/index.html": { "summary": "그래프 화면의 뼈대", "detail": "캔버스, 작업 기록, 설명 패널의 자리를 잡아둔 틀이에요. 스타일과 코드는 빌드할 때 안으로 합쳐져요.", "concepts": ["관계 그래프"], "uses": [{ "path": "viewer/app.js", "why": "그래프를 그리고 클릭에 반응하는 코드를 넣으려고" }, { "path": "viewer/style.css", "why": "화면 모양을 입히려고" }] },
+  "viewer/app.js": { "summary": "그래프를 그리고 클릭에 답하는 화면의 두뇌", "detail": "점들이 서로 밀고 당겨 자리를 찾게 하고, 작업한 파일에 불빛을 넣고, 점이나 선을 누르면 설명 패널을 열어요.", "concepts": ["관계 그래프", "불빛 표현"] },
+  "viewer/style.css": { "summary": "화면의 색과 배치", "detail": "어두운 배경에 초록 불빛이 도드라지도록 색을 정하고, 패널과 작업 기록의 모양을 잡아요.", "concepts": ["불빛 표현"] },
+  "test/helpers.js": { "summary": "테스트에서 함께 쓰는 준비 도구", "detail": "임시 프로젝트를 만들고 훅을 실제 프로세스로 실행해 줘요.", "concepts": ["자동 테스트"] },
+  "test/graph.test.js": { "summary": "그래프 데이터와 정적 HTML을 검사", "detail": "연결선이 맞는지, 깨진 노트에도 죽지 않는지, 코드 조각이 페이지를 망가뜨리지 않는지 확인해요.", "concepts": ["자동 테스트"], "uses": [{ "path": "src/graph.js", "why": "그래프 조립 결과를 검사하려고" }] },
+  "test/hooks.test.js": { "summary": "훅의 기록과 노트 요청을 검사", "detail": "실제 프로세스로 훅을 돌려, 기록할 것과 기록하지 않을 것을 제대로 가리는지 확인해요.", "concepts": ["자동 테스트"], "uses": [{ "path": "src/hooks.js", "why": "훅의 동작을 검사하려고" }] },
+  "test/import.test.js": { "summary": "과거 작업 가져오기를 검사", "detail": "성공한 수정만 가져오는지, 두 번 실행해도 중복되지 않는지 확인해요.", "concepts": ["자동 테스트"] },
+  "test/install.test.js": { "summary": "설치와 서버를 검사", "detail": "기존 설정을 보존하는지, 외부 주소로 온 요청을 거절하는지 확인해요.", "concepts": ["자동 테스트"], "uses": [{ "path": "src/install.js", "why": "설치와 제거를 검사하려고" }] }
+}

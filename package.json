@@ -1,0 +1,11 @@
+{
+  "name": "mycena",
+  "version": "0.1.0",
+  "description": "Claude Code가 무엇을, 왜, 어떻게 바꿨는지 빛나는 관계 그래프로 보여주는 도구",
+  "bin": { "mycena": "bin/mycena.js" },
+  "files": ["bin", "src", "viewer", "commands"],
+  "scripts": { "test": "node --test test/*.test.js" },
+  "engines": { "node": ">=18" },
+  "repository": { "type": "git", "url": "git+https://github.com/harim789/Mycena.git" },
+  "author": "김하림"
+}

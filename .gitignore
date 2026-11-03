@@ -1,0 +1,5 @@
+node_modules/
+.claude/settings.local.json
+.claude/launch.json
+.claude/commands/mycena-describe.md
+.DS_Store

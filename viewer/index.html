@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; connect-src 'self'">
+<title>Mycena</title>
+<style>
+/*__STYLE__*/
+</style>
+</head>
+<body>
+<canvas id="cv" aria-label="프로젝트 파일 관계 그래프"></canvas>
+
+<div id="left" class="float">
+  <div id="brand">
+    <div class="t"><i></i><span id="pname">Mycena</span></div>
+    <div class="s" id="stats"></div>
+    <input id="search" placeholder="파일·개념 검색 (Enter로 이동)" autocomplete="off">
+  </div>
+  <div id="tlh"><span>Claude 작업 기록</span><span id="live" class="muted"></span></div>
+  <div id="tl"></div>
+  <div id="legend">
+    <span class="lg"><span class="sw-glow"></span>선택한 작업 (기본: 방금 한 작업)</span>
+    <span class="lg"><span class="sw-old"></span>이전 작업</span>
+    <span class="lg"><span class="sw-con"></span>개념</span>
+    <span class="lg"><span class="sw-solid"></span>코드 연결</span>
+    <span class="lg"><span class="sw-dash"></span>Claude가 설명한 관계</span>
+    <span class="sep"></span>
+    <label><input type="checkbox" id="tOld" checked>이전 불빛</label>
+    <label><input type="checkbox" id="tCon" checked>개념</label>
+    <label><input type="checkbox" id="tLab">이름 항상</label>
+  </div>
+</div>
+
+<div id="panel" class="float"><button id="close" title="닫기 (Esc)" aria-label="닫기">✕</button><div id="pc"></div></div>
+
+<div id="toast"></div>
+<div id="tip"></div>
+<div id="help">드래그: 이동 · 휠: 확대 · 점/선 클릭: 설명 · F: 전체 보기</div>
+
+<script>
+/*__BOOT__*/
+/*__APP__*/
+</script>
+</body>
+</html>
