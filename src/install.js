@@ -70,4 +70,16 @@ function uninstall(root, { global = false, home = os.homedir() } = {}) {
   return { settings: sp, changed: true };
 }
 
-module.exports = { init, uninstall };
+// 훅 설치 상태: none(없음), current(이 위치), stale(다른 위치 — 확장 업데이트로 경로가 바뀐 경우)
+function hookStatus(root, { home = os.homedir() } = {}) {
+  let found = 'none';
+  for (const sp of [settingsPath(root, false, home), settingsPath(root, true, home)]) {
+    let raw = ''; try { raw = fs.readFileSync(sp, 'utf8'); } catch { continue; }
+    if (!raw.includes('mycena.js')) continue;
+    if (raw.includes(JSON.stringify(JSON.stringify(BIN)).slice(1, -1))) return 'current';
+    found = 'stale';
+  }
+  return found;
+}
+
+module.exports = { init, uninstall, hookStatus };

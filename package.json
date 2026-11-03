@@ -2,10 +2,52 @@
   "name": "mycena",
   "version": "0.1.0",
   "description": "Claude Code가 무엇을, 왜, 어떻게 바꿨는지 빛나는 관계 그래프로 보여주는 도구",
-  "bin": { "mycena": "bin/mycena.js" },
-  "files": ["bin", "src", "viewer", "commands"],
-  "scripts": { "test": "node --test test/*.test.js" },
-  "engines": { "node": ">=18" },
-  "repository": { "type": "git", "url": "git+https://github.com/harim789/Mycena.git" },
-  "author": "김하림"
+  "bin": {
+    "mycena": "bin/mycena.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "viewer",
+    "commands",
+    "extension"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=18",
+    "vscode": "^1.85.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/harim789/Mycena.git"
+  },
+  "author": "김하림",
+  "displayName": "Mycena",
+  "publisher": "harim789",
+  "main": "extension/extension.js",
+  "categories": [
+    "Visualization",
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "mycena.open",
+        "title": "Mycena: 그래프 미리보기 열기"
+      },
+      {
+        "command": "mycena.openInBrowser",
+        "title": "Mycena: 브라우저에서 크게 보기"
+      },
+      {
+        "command": "mycena.install",
+        "title": "Mycena: 이 프로젝트에 Claude Code 훅 설치"
+      }
+    ]
+  }
 }

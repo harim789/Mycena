@@ -4,8 +4,13 @@ const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cv = $('#cv'), ctx = cv.getContext('2d');
 let W = 0, H = 0, DPR = 1;
-function resize() { DPR = window.devicePixelRatio || 1; W = innerWidth; H = innerHeight; cv.width = W * DPR; cv.height = H * DPR; cv.style.width = W + 'px'; cv.style.height = H + 'px'; }
-addEventListener('resize', resize); resize();
+// 미리보기 모드: 확장 안이나 ?compact 주소에서는 별만 띄우고, 별을 눌렀을 때만 설명을 엽니다
+const EMBED = !!window.__EMBED__;
+const COMPACT = EMBED || new URLSearchParams(location.search).has('compact');
+document.body.classList.toggle('compact', COMPACT);
+const editor = EMBED ? acquireVsCodeApi() : null;
+let sky = null, started = false;
+function resize() { DPR = window.devicePixelRatio || 1; W = innerWidth; H = innerHeight; cv.width = W * DPR; cv.height = H * DPR; cv.style.width = W + 'px'; cv.style.height = H + 'px'; sky = null; if (started && COMPACT) fit(null); }
 
 // 쉬고 있는 점은 차분한 색으로 두어, 불빛만 눈에 띄게 합니다
 const PALETTE = ['#7f8fb5', '#8a84b0', '#6f9bad', '#a08aa8', '#7fa39b', '#9aa3bd', '#7a88a0', '#a394a0'];
@@ -15,6 +20,27 @@ const CALM = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const CONCEPT = '#ffc27a';
 const hashStr = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
 const rnd = (i) => { const x = Math.sin(i * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
+
+// 우주 배경: 먼 별과 옅은 성운을 한 번만 그려 두고 매 프레임 복사합니다
+function drawSky() {
+  const c = document.createElement('canvas'); c.width = W * DPR; c.height = H * DPR;
+  const g = c.getContext('2d'); g.scale(DPR, DPR);
+  const bg = g.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * .75);
+  bg.addColorStop(0, '#0d1120'); bg.addColorStop(1, '#05060c');
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  [[.22, .28, '60,70,150'], [.78, .7, '30,110,110']].forEach(([x, y, c2]) => {
+    const n = g.createRadialGradient(W * x, H * y, 0, W * x, H * y, Math.max(W, H) * .4);
+    n.addColorStop(0, `rgba(${c2},.13)`); n.addColorStop(1, `rgba(${c2},0)`);
+    g.fillStyle = n; g.fillRect(0, 0, W, H);
+  });
+  const count = Math.min(900, Math.round(W * H / 3200));
+  for (let i = 0; i < count; i++) {
+    const big = rnd(i + 11) > .96;
+    g.fillStyle = `rgba(${rnd(i + 5) > .8 ? '190,210,255' : '235,238,245'},${.15 + rnd(i + 3) * (big ? .6 : .4)})`;
+    g.beginPath(); g.arc(rnd(i + 1) * W, rnd(i + 2) * H, big ? 1 + rnd(i) * .5 : .3 + rnd(i) * .5, 0, Math.PI * 2); g.fill();
+  }
+  return c;
+}
 
 // ───────── 상태 ─────────
 let D = null, nodes = [], byId = new Map(), edges = [], changes = [], changeById = new Map();
@@ -136,9 +162,8 @@ function draw(t) {
   }
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
   ctx.clearRect(0, 0, W, H);
-  const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * .75);
-  g.addColorStop(0, '#10131b'); g.addColorStop(1, '#090b0f');
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  if (!sky) sky = drawSky();
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(sky, 0, 0);
 
   ctx.setTransform(DPR * cam.k, 0, 0, DPR * cam.k, DPR * (W / 2 + cam.x), DPR * (H / 2 + cam.y));
   const act = activeSet();
@@ -203,6 +228,10 @@ function draw(t) {
     if (!visible(n)) return;
     const dimmed = act && !act.has(n.id);
     const isP = pulse.has(n.id);
+    if (!dimmed && n.exists && n.kind !== 'concept') { // 쉬고 있는 별의 옅은 빛무리
+      ctx.globalAlpha = .13; ctx.fillStyle = n.color;
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r * 2.3, 0, Math.PI * 2); ctx.fill();
+    }
     ctx.globalAlpha = dimmed ? .14 : 1;
     ctx.beginPath();
     if (n.kind === 'concept') { const r = n.r; ctx.moveTo(n.x, n.y - r); ctx.lineTo(n.x + r, n.y); ctx.lineTo(n.x, n.y + r); ctx.lineTo(n.x - r, n.y); ctx.closePath(); }
@@ -252,17 +281,39 @@ function arrow(e, a) {
 function loop(t) { for (let i = 0; i < 2; i++) tick(); draw(t); requestAnimationFrame(loop); }
 
 // ───────── 카메라 ─────────
+// 패널에 가려지지 않고 그래프가 보이는 화면 영역
+const isSheet = () => COMPACT && W < 560;
+function visibleArea() {
+  const a = { l: COMPACT ? 12 : W > 900 ? 342 : 16, r: W - 16, t: COMPACT ? 56 : 40, b: H - 40 };
+  const p = $('#panel');
+  if (p.classList.contains('open')) {
+    if (isSheet()) a.b = H - p.offsetHeight - 12;
+    else if (COMPACT || W > 900) a.r = W - p.offsetWidth - 26;
+  }
+  return a;
+}
+// 선택한 별이 패널 뒤에 있으면 보이는 곳으로 카메라를 옮깁니다
+function revealSelection() {
+  const s = st.sel; if (!s) return;
+  let x, y;
+  if (s.type === 'node') { const n = byId.get(s.id); if (!n) return; x = n.x; y = n.y; }
+  else if (s.type === 'edge') { x = (s.edge.s.x + s.edge.t.x) / 2; y = (s.edge.s.y + s.edge.t.y) / 2; }
+  else return;
+  const a = visibleArea(), [sx, sy] = toScreen(x, y), m = 30;
+  if (sx > a.l + m && sx < a.r - m && sy > a.t + m && sy < a.b - m) return;
+  Object.assign(camT, { k: cam.k, x: (a.l + a.r) / 2 - W / 2 - x * cam.k, y: (a.t + a.b) / 2 - H / 2 - y * cam.k, active: true });
+}
 function fit(ids, instant) {
   const ns = (ids && ids.length ? ids.map((id) => byId.get(id)).filter(Boolean) : nodes.filter(visible));
   if (!ns.length) return;
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   ns.forEach((n) => { x0 = Math.min(x0, n.x); y0 = Math.min(y0, n.y); x1 = Math.max(x1, n.x); y1 = Math.max(y1, n.y); });
-  const left = W > 900 ? 342 : 16, right = W - ($('#panel').classList.contains('open') && W > 900 ? 482 : 16);
-  const aw = Math.max(200, right - left), ah = H - 80;
+  const a = visibleArea();
+  const aw = Math.max(120, a.r - a.l), ah = Math.max(120, a.b - a.t);
   const pad = ns.length < 4 ? 260 : 90;
   const kk = Math.max(.25, Math.min(2.2, Math.min(aw / (x1 - x0 + pad), ah / (y1 - y0 + pad))));
   const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
-  Object.assign(camT, { k: kk, x: (left + right) / 2 - W / 2 - cx * kk, y: -cy * kk, active: true });
+  Object.assign(camT, { k: kk, x: (a.l + a.r) / 2 - W / 2 - cx * kk, y: (a.t + a.b) / 2 - H / 2 - cy * kk, active: true });
   if (instant) Object.assign(cam, { x: camT.x, y: camT.y, k: camT.k });
 }
 
@@ -310,6 +361,7 @@ cv.addEventListener('pointerup', (ev) => {
   if (n) return selectNode(n.id);
   const e = hitEdge(ev.clientX, ev.clientY);
   if (e) return selectEdge(e);
+  if (COMPACT) closePanel(); // 빈 우주를 누르면 다시 별만 크게
 });
 cv.addEventListener('pointerleave', () => { st.hover = null; st.hoverEdge = null; hideTip(); });
 cv.addEventListener('wheel', (ev) => {
@@ -366,12 +418,13 @@ $('#tl').addEventListener('click', (ev) => { const el = ev.target.closest('[data
 $('#tl').addEventListener('keydown', (ev) => { if (ev.key !== 'Enter' && ev.key !== ' ') return; const el = ev.target.closest('[data-change]'); if (el) { ev.preventDefault(); selectChange(el.dataset.change, true); } });
 
 // ───────── 상세 패널 ─────────
-function openPanel(html) { $('#pc').innerHTML = html; $('#panel').classList.add('open'); document.body.classList.add('panel-open'); $('#panel').scrollTop = 0; }
+function openPanel(html) { $('#pc').innerHTML = html; $('#panel').classList.add('open'); document.body.classList.add('panel-open'); $('#panel').scrollTop = 0; revealSelection(); }
 function closePanel() { $('#panel').classList.remove('open'); document.body.classList.remove('panel-open'); st.sel = null; }
 $('#close').onclick = closePanel;
 $('#pc').addEventListener('click', (ev) => {
-  const t = ev.target.closest('[data-node],[data-change],[data-toggle],[data-concept]');
+  const t = ev.target.closest('[data-node],[data-change],[data-toggle],[data-concept],[data-open]');
   if (!t) return;
+  if (t.dataset.open) return editor.postMessage({ type: 'openFile', path: t.dataset.open });
   if (t.dataset.toggle) { const el = document.getElementById(t.dataset.toggle); el.classList.toggle('hidden'); t.textContent = el.classList.contains('hidden') ? t.dataset.closed : '접기'; return; }
   if (t.dataset.node) return selectNode(t.dataset.node, true);
   if (t.dataset.change) return selectChange(t.dataset.change, true);
@@ -438,6 +491,7 @@ function selectNode(id, center) {
       <h2>${esc(n.label)}</h2><div class="path">${esc(n.id)}</div>
       ${isP ? '<span class="badge live">● 선택한 작업에서 수정됨</span>' : hc.length ? `<span class="badge old">Claude가 ${hc.length}번 수정</span>` : ''}
       <span class="badge role">${esc(n.role)}</span>${!n.exists ? '<span class="badge gone">현재 없음</span>' : ''}
+      ${EMBED && n.exists ? `<div><button class="tg" data-open="${esc(n.id)}">에디터에서 열기 →</button></div>` : ''}
     </div>
     <div class="sec"><h3>이 파일은 무슨 일을 하나요?</h3>${about}</div>
     ${n.endpoints && n.endpoints.length ? `<div class="sec"><h3>이 파일이 여는 API 주소</h3>${n.endpoints.map((e) => { const [m, ...p] = e.split(' '); return `<div class="ep"><b>${esc(m)}</b>${esc(p.join(' '))}</div>`; }).join('')}</div>` : ''}
@@ -509,6 +563,7 @@ function selectEdge(e) {
     <div class="sec"><h3>양쪽 파일</h3>${nodeLink(a.id)}${nodeLink(b.id)}</div>`);
 }
 
+const fitChange = (c) => fit([...new Set(c._ids.flatMap((x) => [x, ...adj.get(x)]))]);
 function selectChange(id, doFit) {
   const c = changeById.get(id); if (!c) return;
   st.focus = id; st.sel = { type: 'change', id };
@@ -540,7 +595,7 @@ function selectChange(id, doFit) {
     ${c.concepts && c.concepts.length ? `<div class="sec"><h3>관련 개념</h3><div class="chips">${c.concepts.map((x) => `<span class="chip c" data-concept="${esc(x)}">◆ ${esc(x)}</span>`).join('')}</div></div>` : ''}
     ${c.auto ? `<div class="sec"><p class="muted small">이 작업은 Claude가 설명 노트를 남기기 전에 기록된 거라 자동 정보만 있어요. 훅이 켜진 상태의 작업에는 "왜/무엇/이전→이후" 설명이 함께 붙어요.</p></div>` : ''}`);
   // 이웃까지 함께 보여줘야 불빛이 그래프의 어느 부분인지 알 수 있습니다
-  if (doFit) fit([...new Set(c._ids.flatMap((x) => [x, ...adj.get(x)]))]);
+  if (doFit) fitChange(c);
 }
 
 // ───────── 실시간 갱신 ─────────
@@ -548,36 +603,63 @@ function toast(msg, onclick) {
   const t = $('#toast'); t.textContent = msg; t.classList.add('show'); t.onclick = () => { onclick && onclick(); t.classList.remove('show'); };
   clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 6000);
 }
+function ingest(d) {
+  if (D && d.version === D.version) return;
+  const prevLatest = changes[0] && changes[0].id;
+  const first = !D;
+  const wasFollowingLatest = !st.focus || st.focus === prevLatest;
+  load(d);
+  const nl = changes[0];
+  if (first) start();
+  else if (nl && nl.id !== prevLatest) {
+    if (wasFollowingLatest) { st.focus = nl.id; computeHeat(); renderTimeline(); }
+    toast(`✨ Claude가 방금 작업했어요: ${nl.title}`, () => selectChange(nl.id, true));
+    if (COMPACT && !st.sel) { if (wasFollowingLatest) fitChange(nl); } // 미리보기는 패널 없이 불빛으로만 알림
+    else if (!st.sel || st.sel.type === 'change') selectChange(nl.id, wasFollowingLatest);
+  } else if (st.sel && st.sel.type === 'change') selectChange(st.sel.id, false);
+}
 async function poll() {
   try {
     const r = await fetch('/data.json', { cache: 'no-store' });
-    const d = await r.json();
-    const prevLatest = changes[0] && changes[0].id;
-    if (!D || d.version !== D.version) {
-      const first = !D;
-      const wasFollowingLatest = !st.focus || st.focus === prevLatest;
-      load(d);
-      const nl = changes[0];
-      if (first) { start(); }
-      else if (nl && nl.id !== prevLatest) {
-        if (wasFollowingLatest) { st.focus = nl.id; computeHeat(); renderTimeline(); }
-        toast(`✨ Claude가 방금 작업했어요: ${nl.title}`, () => selectChange(nl.id, true));
-        if (!st.sel || st.sel.type === 'change') selectChange(nl.id, wasFollowingLatest);
-      } else if (st.sel && st.sel.type === 'change') selectChange(st.sel.id, false);
-    }
+    ingest(await r.json());
     $('#live').innerHTML = `<span style="color:${GLOW_HEX}">●</span> 실시간`;
   } catch (e) { $('#live').textContent = '연결 끊김'; }
   setTimeout(poll, 2500);
 }
 
-let started = false;
+// ───────── 큰 화면으로 이동 ─────────
+// 지금 보던 별을 브라우저에서도 그대로 이어서 보여줍니다
+function selectionRef() {
+  const s = st.sel;
+  if (!s) return null;
+  if (s.type === 'node') return { kind: 'node', id: s.id };
+  if (s.type === 'edge') return { kind: 'node', id: s.edge.s.id };
+  return { kind: 'change', id: s.id };
+}
+function openFull() {
+  const ref = selectionRef();
+  if (editor) return editor.postMessage({ type: 'openBrowser', ref });
+  const hash = ref ? '#' + new URLSearchParams({ [ref.kind]: ref.id }) : '';
+  window.open(location.href.split(/[?#]/)[0] + hash, '_blank', 'noopener');
+}
+$('#mFull').onclick = openFull;
+$('#mFit').onclick = () => fit(null);
+function selectFromHash() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get('node') && byId.has(h.get('node'))) { selectNode(h.get('node'), true); return true; }
+  if (h.get('change') && changeById.has(h.get('change'))) { selectChange(h.get('change'), true); return true; }
+  return false;
+}
+
 function start() {
   if (started) return; started = true;
   for (let i = 0; i < 260; i++) tick();   // 첫 화면부터 정돈된 상태로
-  if (changes.length && W >= 1200) selectChange(changes[0].id, false); // 넓은 화면은 열자마자 "방금 한 일"부터 보여줌
+  if (changes.length && !COMPACT && W >= 1200) selectChange(changes[0].id, false); // 넓은 화면은 열자마자 "방금 한 일"부터 보여줌
   fit(null, true);
+  selectFromHash();
   requestAnimationFrame(loop);
 }
+addEventListener('resize', resize); resize();
 // 콘솔/외부 스크립트용 작은 API
 window.mycena = {
   selectNode: (id) => selectNode(id, true), selectChange: (id) => selectChange(id, true), fit: () => fit(null),
@@ -585,5 +667,6 @@ window.mycena = {
 };
 if (window.__DATA__) { load(window.__DATA__); start(); $('#live').textContent = ago(window.__DATA__.generatedAt) + ' 생성'; }
 if (window.__LIVE__) poll();
-if (!window.__DATA__ && !window.__LIVE__) $('#tl').innerHTML = '<div class="empty">데이터가 없어요. <code>mycena serve</code> 또는 <code>mycena build</code>로 열어 주세요.</div>';
+if (editor) { addEventListener('message', (ev) => { if (ev.data && ev.data.type === 'data') ingest(ev.data.data); }); editor.postMessage({ type: 'ready' }); }
+if (!window.__DATA__ && !window.__LIVE__ && !editor) $('#tl').innerHTML = '<div class="empty">데이터가 없어요. <code>mycena serve</code> 또는 <code>mycena build</code>로 열어 주세요.</div>';
 })();

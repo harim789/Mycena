@@ -30,7 +30,7 @@ try {
   } else if (cmd === 'build') {
     const { out, data } = require('../src/output').writeStatic(path.resolve(args[0] || cwd()), args[1]);
     console.log(`✅ ${out}\n   파일 ${data.nodes.filter((n) => n.kind === 'file').length}개 · 연결 ${data.edges.length}개 · Claude 작업 ${data.changes.length}개`);
-  } else if (cmd === 'serve') require('../src/output').serve(cwd(), Number(args[0]) || 4321);
+  } else if (cmd === 'serve') require('../src/output').serve(cwd(), args[0] === undefined ? 4321 : Number(args[0]));
   else console.log(HELP);
 } catch (e) {
   // 훅이 실패해도 Claude Code 작업은 절대 막지 않음

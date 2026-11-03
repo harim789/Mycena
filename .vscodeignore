@@ -1,0 +1,5 @@
+test/**
+.claude/**
+.mycena/**
+.gitignore
+CLAUDE.md

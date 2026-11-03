@@ -62,7 +62,12 @@ function serve(r, port) {
     process.exit(1);
   });
   srv.listen(port, '127.0.0.1', () => {
-    console.log(`\n  🍄 Mycena 실행 중 → http://localhost:${port}\n  프로젝트: ${r}\n  Claude Code가 파일을 고치면 몇 초 안에 그래프에 불이 들어와요. (Ctrl+C로 종료)\n`);
+    const actual = srv.address().port;
+    if (process.send) { // 확장이 띄운 서버: 포트를 알려주고, 확장이 끝나면 함께 종료
+      process.send({ port: actual });
+      process.on('disconnect', () => process.exit(0));
+    }
+    console.log(`\n  🍄 Mycena 실행 중 → http://localhost:${actual}\n  프로젝트: ${r}\n  Claude Code가 파일을 고치면 몇 초 안에 그래프에 불이 들어와요. (Ctrl+C로 종료)\n`);
   });
   return srv;
 }

@@ -119,3 +119,25 @@ body.panel-open #help{right:482px}
 .commit code{font:11.5px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:var(--accent);padding-top:2px}
 .commit .cm{font-size:11.5px;color:var(--muted)}
 @media (prefers-reduced-motion:reduce){.ti.latest .dot{animation:none}#panel,#toast{transition:none}}
+
+/* 미리보기 모드: 별이 주인공. 설명은 별을 눌렀을 때만 옆에서 열립니다 */
+#mini{display:none;left:10px;top:10px;align-items:center;gap:8px;padding:6px 6px 6px 12px;font-size:12.5px;font-weight:600;max-width:calc(100vw - 20px)}
+#mini i{width:8px;height:8px;border-radius:50%;background:var(--glow);box-shadow:0 0 8px var(--glow);flex:none}
+#mName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:0 1 auto}
+#mini button{flex:none;height:28px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);cursor:pointer;font-size:12.5px;white-space:nowrap}
+#mini button:hover{border-color:#3a4356}
+#mini button.primary{color:#06170e;background:var(--glow);border-color:var(--glow);font-weight:700}
+#mini button:focus-visible{outline:2px solid var(--glow);outline-offset:1px}
+body.compact #mini{display:flex}
+body.compact #left,body.compact #help{display:none}
+body.compact #panel{right:10px;top:10px;bottom:10px;width:clamp(280px,44vw,400px);transform:translateX(calc(100% + 20px))}
+body.compact #panel.open{transform:none}
+body.compact.panel-open #mini{max-width:calc(100vw - clamp(280px,44vw,400px) - 30px)}
+body.compact .ph{padding:16px 18px 12px}
+body.compact .sec{padding:12px 18px}
+body.compact .ba{grid-template-columns:1fr}
+body.compact .ba .arr{transform:rotate(90deg);padding:2px 0}
+@media (max-width:559px){
+  body.compact #panel{left:8px;right:8px;top:auto;bottom:8px;width:auto;height:58vh;transform:translateY(calc(100% + 16px))}
+  body.compact.panel-open #mini{max-width:calc(100vw - 20px)}
+}
